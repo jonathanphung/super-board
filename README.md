@@ -4,6 +4,12 @@ An autonomous GitHub Project board executor for Claude Code. Drag a card into th
 
 Super Board watches your GitHub Project, dispatches headless `claude -p` workers to Build / QA / Review the cards, and moves each card across the board as it goes — all without holding a single Claude session open.
 
+## Watch it run
+
+[![Watch the super-board walkthrough on YouTube](https://img.youtube.com/vi/nX_bGyIOFM4/maxresdefault.jpg)](https://youtu.be/nX_bGyIOFM4)
+
+▶ [https://youtu.be/nX_bGyIOFM4](https://youtu.be/nX_bGyIOFM4)
+
 ## Quickstart
 
 1. Download the latest release zip from [Releases](../../releases/latest).
