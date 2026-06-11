@@ -24,6 +24,8 @@ Super Board watches your GitHub Project, dispatches headless `claude -p` workers
 
 That's it. Move cards into `Ready`, watch them flow through the board.
 
+**Workflow backend (new in 1.5.0):** set `"worker_backend": "workflow"` in your board config to drain waves in-session via dynamic workflows instead of headless `claude -p` workers. The orchestrator session plans a wave, launches the `super-board-wave` workflow, reconciles results, and repeats — lane lifecycles are unchanged. See `skills/super-board/references/run-workflow.md`.
+
 To stop everything cleanly: `/super-board stop`. It posts a "stopped mid-flight" comment on every in-flight issue + PR (lane, last commit, resume hint), releases the assignee mutex, kills the workers and dispatcher. To resume, just `/super-board run <slug>` again — the board is the state, so cards are picked up from whichever column they were in.
 
 ## How it works
