@@ -14,11 +14,13 @@ echo "$OUT" | jq -e '.cards[0].number == 10 and .cards[0].status == "Review"' >/
 echo "$OUT" | jq -e '.cards[1].number == 13 and .cards[1].status == "QA"' >/dev/null || fail "card[1] should be QA #13"
 echo "$OUT" | jq -e '.cards[2].number == 12 and .cards[2].status == "Ready"' >/dev/null || fail "card[2] should be Ready #12 (skip assigned #11)"
 
-# Scenario 2 — qa-only variant: Review + Ready base picks, then backlog fill adds Ready #14
+# Scenario 2 — qa-only variant selects the QA column too: a card can land in
+# QA via a manual move or a bounce, and excluding the column would strand it
+# forever (the old Review+Ready-only selection did exactly that).
 QA_ONLY=$(jq '.variant = "qa-only"' fixtures/wave-config.json)
 OUT2=$("$PLAN" --config <(echo "$QA_ONLY") --items fixtures/wave-items.json)
-echo "$OUT2" | jq -e '.cards | length == 3' >/dev/null || fail "qa-only should select 3 cards (backlog fill), got: $OUT2"
-echo "$OUT2" | jq -e '[.cards[].status] == ["Review","Ready","Ready"]' >/dev/null || fail "qa-only columns should be Review,Ready,Ready"
+echo "$OUT2" | jq -e '.cards | length == 3' >/dev/null || fail "qa-only should select 3 cards, got: $OUT2"
+echo "$OUT2" | jq -e '[.cards[].status] == ["Review","QA","Ready"]' >/dev/null || fail "qa-only columns should be Review,QA,Ready (QA card must not strand), got: $OUT2"
 
 # Scenario 3 — max_workers cap
 CAPPED=$(jq '.max_workers = 1' fixtures/wave-config.json)

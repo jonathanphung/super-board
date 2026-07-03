@@ -42,7 +42,10 @@ fi
 # drop the QA column from selection and strand cards there.
 case "$VARIANT" in
   full)    COLUMNS='["Review","QA","Ready"]' ;;
-  qa-only) COLUMNS='["Review","Ready"]' ;;
+  # qa-only also selects the QA column: a card can land there via a manual
+  # move or a bounce, and with only Review+Ready selected it would sit
+  # stranded forever while the run loop waits for the board to drain.
+  qa-only) COLUMNS='["Review","QA","Ready"]' ;;
   *) echo "invalid variant in config: ${VARIANT} (expected full|qa-only)" >&2; exit 65 ;;
 esac
 

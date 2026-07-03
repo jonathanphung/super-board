@@ -91,8 +91,13 @@ if [ "${SUPER_QA_ALLOW_WEAK_BODY:-0}" != "1" ]; then
     err "body rejected — missing required sections: ${MISSING%, }"
     exit 70
   fi
-  if grep -nE '(^|[^A-Za-z])TBD([^A-Za-z]|$)|TODO:|<\.\.\.>' "$BODY_FILE" >/dev/null; then
-    err "body rejected — contains placeholder text (TBD / TODO: / <...>). Fill it in or set SUPER_QA_ALLOW_WEAK_BODY=1 (not in normal runs)."
+  # Placeholder patterns: TBD / TODO: / literal <...> / template stubs like
+  # "<one sentence: what is wrong and where>" — an angle-bracketed phrase
+  # containing a space (first char not ! or /, so HTML comments and closing
+  # tags don't trip it). Rare legit HTML like <a href="..."> in evidence can
+  # false-positive; reword it or use the documented escape hatch.
+  if grep -nE '(^|[^A-Za-z])TBD([^A-Za-z]|$)|TODO:|<\.\.\.>|<[^!/>][^>]* [^>]*>' "$BODY_FILE" >/dev/null; then
+    err "body rejected — contains placeholder text (TBD / TODO: / <...> / an unfilled '<template stub>'). Fill it in or set SUPER_QA_ALLOW_WEAK_BODY=1 (not in normal runs)."
     exit 70
   fi
 fi
