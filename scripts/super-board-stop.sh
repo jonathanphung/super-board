@@ -156,11 +156,18 @@ echo "  super-board stop · ${CONFIG_SLUG}"
 echo "════════════════════════════════════════════════════════"
 
 # 1. Inventory in-flight workers BEFORE killing anything.
+# Issue locks only: basenames are issue numbers. Anything else in this dir
+# (e.g. the workflow backend's workflow-wave.lock) is NOT a worker lock —
+# treating it as one would post a comment to a nonexistent issue, count it in
+# the summary, and worst of all delete the workflow backend's mutual-exclusion
+# lock in step 5 while that wave is still running. Same filter as
+# reap_finished_locks in super-board-run.sh.
 WORKERS=()
 if [ -d "$INFLIGHT_DIR" ]; then
   for lock in "$INFLIGHT_DIR"/*; do
     [ -e "$lock" ] || continue
     issue=$(basename "$lock")
+    case "$issue" in *[!0-9]*|'') continue ;; esac
     read_lock "$issue"
     WORKERS+=("${issue}|${LANE:-unknown}|${PID:-}")
   done
@@ -206,11 +213,21 @@ if [ -n "$DISPATCHER_PIDS" ]; then
   done
 fi
 
-# 5. Clear in-flight locks (PIDs are dead now).
-if [ -d "$INFLIGHT_DIR" ] && [ -n "$(ls -A "$INFLIGHT_DIR" 2>/dev/null)" ]; then
-  rm -f "$INFLIGHT_DIR"/*
-  log ""
-  log "🧽 cleared $INFLIGHT_DIR"
+# 5. Clear in-flight ISSUE locks (PIDs are dead now). Leave non-numeric files
+# (workflow-wave.lock etc.) alone — stopping the legacy dispatcher must not
+# dissolve the workflow backend's mutual exclusion.
+if [ -d "$INFLIGHT_DIR" ]; then
+  CLEARED=0
+  for lock in "$INFLIGHT_DIR"/*; do
+    [ -e "$lock" ] || continue
+    case "$(basename "$lock")" in *[!0-9]*|'') continue ;; esac
+    rm -f "$lock"
+    CLEARED=1
+  done
+  if [ "$CLEARED" -eq 1 ]; then
+    log ""
+    log "🧽 cleared issue locks from $INFLIGHT_DIR"
+  fi
 fi
 
 # 6. Summary.

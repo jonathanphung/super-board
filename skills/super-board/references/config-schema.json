@@ -75,6 +75,17 @@
   // `base_branch` is `main` AND the repo has a deploy workflow detected.
   "human_approves_merge": false,
 
+  // Fail-closed acknowledgment for the legacy claude-p dispatcher's
+  // production-merge guard. Deploy detection can't see dashboard-configured
+  // pipelines (Cloudflare Pages, Render, Railway, Amplify, ...), so when
+  // `base_branch` is `main` and `human_approves_merge` is `false`, the
+  // dispatcher refuses to start (exit 75) unless this is explicitly `true` —
+  // a written statement that main does NOT auto-deploy anywhere. Ignored
+  // when `human_approves_merge` is `true`. Even when `true`, a positively
+  // detected deploy marker (GitHub workflow on main, vercel/netlify/wrangler
+  // config) still hard-refuses. Default `false`.
+  "i_confirm_main_does_not_autodeploy": false,
+
   // Controls Reviewer's adversarial mode (folded-in super-truth pattern).
   //   "off"          — never adversarial.
   //   "non-trivial"  — (default) activates on cards with diff ≥10 lines OR

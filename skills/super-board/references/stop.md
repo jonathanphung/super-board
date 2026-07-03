@@ -2,7 +2,7 @@
 
 Pointer: spec `docs/superpowers/specs/2026-05-21-super-board-design.md` §9 (added in v1.3.0).
 
-**Where it runs:** interactive orchestrator. Spawns the headless `scripts/super-board-stop.sh` synchronously, reports the summary, exits. No background processes.
+**Where it runs:** interactive orchestrator. Spawns the headless `.claude/bin/super-board-stop.sh` synchronously, reports the summary, exits. No background processes.
 
 ## What stop does — the one-line version
 
@@ -94,7 +94,7 @@ Resume cost: **one lane cycle per previously-in-flight card** (Builder ~5min, Te
 Per the cardinal orchestrator/worker rule:
 
 1. Verify `.claude/super-board/active` exists OR a slug was provided.
-2. Run `scripts/super-board-stop.sh <slug>` synchronously (it's fast — seconds, not minutes).
+2. Run `.claude/bin/super-board-stop.sh <slug>` synchronously (it's fast — seconds, not minutes).
 3. Pass through the script's summary to the user.
 4. **Do not** retry kills, do not chase down zombies the script missed, do not "while you're at it" clean up worktrees or branches. If the script reported failures, surface them and wait for explicit user direction.
 

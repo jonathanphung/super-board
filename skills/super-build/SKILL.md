@@ -112,11 +112,11 @@ gh issue comment N --body "🤖 Dispatched by /super-build — worker spinning u
 
 c. **Dispatch:**
 ```bash
-bash scripts/super-build-dispatch.sh N
+bash .claude/skills/super-build/scripts/super-build-dispatch.sh N
 ```
 …via Bash with `run_in_background: true`. Capture each shell ID.
 
-The dispatcher (at `scripts/super-build-dispatch.sh`) handles:
+The dispatcher (at `.claude/skills/super-build/scripts/super-build-dispatch.sh`) handles:
 - `git worktree add -b loop/issue-N .worktrees/issue-N <base-branch>`
 - `gh issue view N --json title,body,labels` to compose the worker prompt
 - prepend `references/worker-preamble.md` + append working-directory footer

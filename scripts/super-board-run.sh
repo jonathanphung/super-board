@@ -68,7 +68,24 @@ log() { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$RUN_MANIFEST"; }
 PROJECT_ITEMS_JSON=""
 fetch_project_items() {
   # One gh call per tick; all column lookups read from this cache.
-  PROJECT_ITEMS_JSON=$(gh project item-list "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --format json --limit 500 2>/dev/null || echo '{"items":[]}')
+  # A failed fetch must NOT masquerade as an empty board: expired auth, a wrong
+  # project number, or a GitHub outage would otherwise read as "drained" and the
+  # runner would exit cleanly with real cards left unprocessed. Retry once
+  # (transient blips), then hard-fail so the operator sees the real error.
+  local out
+  if ! out=$(gh project item-list "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --format json --limit 500 2>&1); then
+    log "⚠ project item-list failed: ${out}"
+    log "  retrying in 30s..."
+    sleep 30
+    if ! out=$(gh project item-list "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --format json --limit 500 2>&1); then
+      log "🛑 project item-list failed twice — halting rather than treating the board as empty."
+      log "   Last error: ${out}"
+      log "   Check 'gh auth status' and the project owner/number in ${CONFIG_PATH},"
+      log "   then resume: $0 $CONFIG_SLUG"
+      exit 79
+    fi
+  fi
+  PROJECT_ITEMS_JSON="$out"
 }
 
 column_count() {
@@ -139,18 +156,31 @@ gh_rate_guard() {
 }
 
 try_claim_assignee() {
-  # Atomic claim. Returns 0 if we won the claim, 1 if someone else beat us.
+  # Claim + verify. Returns 0 if we won the claim, 1 if someone else beat us.
   # Skipped when bot_identity is unset (solo single-user runs rely on local locks only).
-  # We rely on `top_card_in_column` having already filtered out cards with assignees
-  # from the cached project item-list — so we attempt the edit directly without a
-  # pre-check `gh issue view`. Saves one GraphQL call per dispatch. The edit is
-  # idempotent for self-assign; on race-loss, gh returns non-zero and we skip.
-  local issue="$1"
+  # `top_card_in_column` filtered out cards with assignees from the cached
+  # item-list, but that cache can be a full tick stale — and GitHub issues
+  # allow MULTIPLE assignees, so a successful --add-assignee does not prove we
+  # won a race against another orchestrator. After the edit, re-read the live
+  # assignee set and proceed only if the bot is the SOLE assignee; otherwise
+  # release our claim and skip. Both racers may release and retry next tick —
+  # that's safe (a skipped tick), unlike both dispatching duplicate workers.
+  local issue="$1" assignees
   [ -z "$BOT_LOGIN" ] && return 0
   gh issue edit "$issue" --add-assignee "$BOT_LOGIN" >/dev/null 2>&1 || {
     log "claim failed on #${issue} (race or gh api error) — skipping this tick"
     return 1
   }
+  assignees=$(gh issue view "$issue" --json assignees -q '[.assignees[].login] | sort | join(",")' 2>/dev/null) || {
+    log "claim verify failed on #${issue} (gh api error) — releasing claim, skipping this tick"
+    gh issue edit "$issue" --remove-assignee "$BOT_LOGIN" >/dev/null 2>&1 || true
+    return 1
+  }
+  if [ "$assignees" != "$BOT_LOGIN" ]; then
+    log "claim lost on #${issue} (assignees now: ${assignees:-none}) — releasing our claim"
+    gh issue edit "$issue" --remove-assignee "$BOT_LOGIN" >/dev/null 2>&1 || true
+    return 1
+  fi
   return 0
 }
 
@@ -278,11 +308,29 @@ if [ -f "$WAVE_LOCK" ]; then
   exit 74
 fi
 
-# Production-merge guard.
+# Production-merge guard (fail closed).
+# Deploy detection is fundamentally unreliable: Cloudflare Pages, Render,
+# Railway, Amplify, etc. can be wired to `main` entirely in their dashboards
+# with zero config files in the repo. So instead of allowing auto-merge unless
+# a known deploy marker is found, refuse auto-merge to main unless the config
+# explicitly acknowledges that main does not auto-deploy.
 if [ "$BASE_BRANCH" = "main" ] && [ "$HUMAN_APPROVES" = "false" ]; then
+  CONFIRM_NO_AUTODEPLOY=$(jq -r '.i_confirm_main_does_not_autodeploy // false' "$CONFIG_PATH")
+  if [ "$CONFIRM_NO_AUTODEPLOY" != "true" ]; then
+    log "🛡 refusing to start: base_branch is 'main' with human_approves_merge=false."
+    log "   Auto-deploy detection can't see dashboard-configured pipelines (Cloudflare"
+    log "   Pages, Render, ...), so this guard fails closed. Either:"
+    log "     - set \"human_approves_merge\": true in ${CONFIG_PATH}, or"
+    log "     - if you are CERTAIN main does not auto-deploy anywhere, set"
+    log "       \"i_confirm_main_does_not_autodeploy\": true in ${CONFIG_PATH}."
+    exit 75
+  fi
+  # Even with the acknowledgment, still hard-refuse when a deploy marker IS
+  # visible in the repo — the acknowledgment can't override positive evidence.
   if rg -qU 'on:\s*\n?\s*push:\s*\n?\s*branches:[^a-z]*main' .github/workflows 2>/dev/null \
-     || [ -f vercel.json ] || [ -f netlify.toml ]; then
-    log "🛡 refusing to start: would auto-merge to production main."
+     || [ -f vercel.json ] || [ -f netlify.toml ] || [ -f wrangler.toml ] || [ -f wrangler.jsonc ]; then
+    log "🛡 refusing to start: repo shows a deploy pipeline on main (workflow/vercel/netlify/wrangler)"
+    log "   despite i_confirm_main_does_not_autodeploy=true. Set \"human_approves_merge\": true."
     exit 75
   fi
 fi
