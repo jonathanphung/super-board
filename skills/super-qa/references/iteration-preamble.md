@@ -138,7 +138,7 @@ For every spec run, the report-fixture must capture and persist:
 
 The fixture **already captures** all of the above via
 `e2e/lib/report-fixture.ts`. Disk writes are gated behind
-`SUPER_QA_FORENSICS=1`, which `scripts/super-qa-dispatch.sh` exports for
+`SUPER_QA_FORENSICS=1`, which `.claude/bin/super-qa-dispatch.sh` exports for
 every iter. The Sentry probe needs `SENTRY_AUTH_TOKEN`; if missing, it
 logs `sentryProbeSkippedReason` and continues.
 
@@ -542,7 +542,7 @@ detection (do NOT batch at end of iter):
 
 2. **File the issue + auto-promote to Ready:**
    ```bash
-   ISSUE_N=$(scripts/super-qa-file-bug.sh \
+   ISSUE_N=$(.claude/bin/super-qa-file-bug.sh \
      --title "<one-line title>" \
      --body-file /tmp/super-qa-iter-${N}-bug-${slug}.md \
      --kind bug \
@@ -557,9 +557,10 @@ detection (do NOT batch at end of iter):
    ```
    The issue title will be board-readable, for example `🐛 Bug /imports — CSV upload fails after submit`, and the labels will include `bug`, `source:qa`, `priority:<high|medium|low>`, optional `area:<area>`, optional `qa:<category>`, and optional `skill:<owner>`. The script validates required body sections and dedupes by fingerprint: if the same open `source:qa` issue already exists, it comments with the new evidence and returns the existing issue number instead of creating a duplicate card.
 
-   The script prints the new issue number on stdout and drops the issue card
-   in the `Ready` column of the Fitbox Admin project board (#2). Capture
-   `$ISSUE_N` and reference it everywhere downstream:
+   The script prints the new issue number on stdout and adds the card to the
+   resolved QA project board ("Super Ultimate QA" unless overridden — see
+   SKILL.md §Project resolution), setting its Status column (default `Bug`).
+   Capture `$ISSUE_N` and reference it everywhere downstream:
    - In `queue.md` line: `[b] /foo → BUG-N.M → #${ISSUE_N} (iter:N)`
    - In `iteration-N.md` Section 3 YAML: `gh_issue: ${ISSUE_N}`
    - In any fix commit message: `fix(super-qa): ... (closes #${ISSUE_N})`

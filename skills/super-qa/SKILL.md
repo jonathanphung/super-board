@@ -45,7 +45,7 @@ This board is the durable, machine-readable state for the loop. `docs/super-qa/q
 
 ### Project resolution
 
-Resolution order (used by `scripts/super-qa-file-bug.sh` and the orchestrator):
+Resolution order (used by `.claude/bin/super-qa-file-bug.sh` and the orchestrator):
 
 1. If `SUPER_QA_PROJECT_TITLE` is set, query `gh project list --owner $SUPER_QA_PROJECT_OWNER --format json` and pick the project whose title matches (case-insensitive).
 2. Otherwise default to title `Super Ultimate QA`.
@@ -55,7 +55,7 @@ If no matching project exists, the loop halts with a one-line error and instruct
 
 ### Filing semantics
 
-When the worker finds a red spec, it calls `scripts/super-qa-file-bug.sh`. The script:
+When the worker finds a red spec, it calls `.claude/bin/super-qa-file-bug.sh`. The script:
 
 - Creates the issue with `source:qa` label and full evidence body.
 - Adds the issue to the resolved **Super Ultimate QA** project.
@@ -140,7 +140,7 @@ entry under "Level 0".
 
 ## Findings land in clear GitHub Issues, NOT in markdown
 
-Every `[b]` cell triggers the worker to call `scripts/super-qa-file-bug.sh`.
+Every `[b]` cell triggers the worker to call `.claude/bin/super-qa-file-bug.sh`.
 The resulting Project card must be readable from the board without opening it.
 Do **not** use legacy `[VFL]`, `verify-fix`, or `severity:P*` wording in new issue titles.
 
@@ -265,7 +265,7 @@ Per-spec forensics captured by `e2e/lib/report-fixture.ts`:
 The fixture (`e2e/lib/report-fixture.ts`) **already captures** console
 errors, page errors, failed requests, network summary, and Sentry events,
 plus HAR via `recordHar`. Disk writes are gated behind
-`SUPER_QA_FORENSICS=1`, which `scripts/super-qa-dispatch.sh` exports for
+`SUPER_QA_FORENSICS=1`, which `.claude/bin/super-qa-dispatch.sh` exports for
 every iter. Fixture exposes everything via `report.forensics.*` (e.g.
 `report.forensics.consoleErrors`). Iter 2's only fixture-related task is
 to retrofit the assertions onto the 5 existing specs (login, dashboard,
@@ -294,7 +294,7 @@ Notify Telegram once: `🐛 Super QA starting — N iterations`.
 
 **2b. Dispatch iteration worker**
 ```
-bash scripts/super-qa-dispatch.sh <next_n>
+bash .claude/bin/super-qa-dispatch.sh <next_n>
 ```
 …via Bash with `run_in_background: true` (so the orchestrator can poll). The
 dispatcher:
@@ -520,8 +520,10 @@ Safety rails (enforced by the iteration preamble):
 └─ references/
    └─ iteration-preamble.md            ← worker contract (verbatim prompt)
 
-scripts/
-└─ super-qa-dispatch.sh         ← thin dispatcher
+.claude/bin/
+├─ super-qa-dispatch.sh         ← thin dispatcher
+├─ super-qa-file-bug.sh         ← issue filer (validation + fingerprint dedupe + board promote)
+└─ super-qa-notify.sh           ← Telegram status helper (no-op when unconfigured)
 
 docs/super-qa/
 ├─ README.md                           ← operator's guide
