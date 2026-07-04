@@ -94,8 +94,19 @@ Resume cost: **one lane cycle per previously-in-flight card** (Builder ~5min, Te
 Per the cardinal orchestrator/worker rule:
 
 1. Verify `.claude/super-board/active` exists OR a slug was provided.
-2. Run `.claude/bin/super-board-stop.sh <slug>` synchronously (it's fast — seconds, not minutes).
-3. Pass through the script's summary to the user.
+2. Read the config's `worker_backend` and branch:
+   - **`"workflow"` (default):** the legacy script cannot stop a wave — it
+     kills `claude -p` workers and deliberately leaves `workflow-wave.lock`
+     alone. Instead: (a) cancel the running `super-board-wave` workflow if
+     one is active in this session; (b) for each card the wave had in flight,
+     post the stopped-mid-flight comment (same template as the script) and
+     release the bot assignee; (c) remove
+     `.claude/super-board/inflight/workflow-wave.lock` so the next run can
+     start. If lane agents were spawned as separate processes, also run the
+     legacy script afterwards to sweep them.
+   - **`"claude-p"` (legacy):** run `.claude/bin/super-board-stop.sh <slug>`
+     synchronously (it's fast — seconds, not minutes).
+3. Pass through the summary to the user.
 4. **Do not** retry kills, do not chase down zombies the script missed, do not "while you're at it" clean up worktrees or branches. If the script reported failures, surface them and wait for explicit user direction.
 
 ## Failure modes + recovery

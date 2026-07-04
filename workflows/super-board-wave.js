@@ -70,7 +70,10 @@ const withReviewLock = (fn) => {
 }
 
 const lanePrompt = (lane, card) => [
-  `Run ${LANE[lane].skill} on issue #${card.number} ("${card.title}") for a super-board workflow wave.`,
+  // "for super-board run" is the literal trigger substring the lane skills
+  // match to switch from standalone mode to the issue-scoped super-board
+  // lifecycle (same phrase the legacy dispatcher uses) — do not reword it.
+  `Run ${LANE[lane].skill} on issue #${card.number} ("${card.title}") for super-board run (workflow-wave backend).`,
   `Read .claude/skills/super-board/references/run.md → "${LANE[lane].section}" lifecycle and follow it EXACTLY:`,
   `create your own worktree under .worktrees/, work on the issue branch, post the required PR/issue comments,`,
   `move the project card yourself, clean up the worktree on exit. Config: ${input.configPath}.`,

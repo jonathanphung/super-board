@@ -358,7 +358,7 @@ After termination (or on halt):
 
 The worker (per iter N) runs three phases:
 
-**Phase 1 — Regression.** `npx playwright test e2e/paths/` against
+**Phase 1 — Regression.** `npx playwright test --config=e2e/playwright.smoke.config.ts` (paths + flows) against
 everything. Any red spec? Apply the retry policy (re-run once in isolation).
 Real reds get filed as bugs in `iteration-N.md`, fixed via TDD, re-run until
 green. This is the "verify what we already have" step.

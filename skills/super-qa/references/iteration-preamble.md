@@ -172,7 +172,7 @@ MUST embed (or reference paths to) these artifacts. Template addition:
 Run the full existing suite against the active target:
 
 ```bash
-npx playwright test e2e/paths/ --config=e2e/playwright.smoke.config.ts
+npx playwright test --config=e2e/playwright.smoke.config.ts   # runs e2e/paths/ AND e2e/flows/
 ```
 
 Read the result. For each red spec:
