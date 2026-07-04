@@ -243,7 +243,23 @@ If a screenshot file is >5MB, downscale to ≤1920px wide before committing; Git
    - Both open → bounce to whichever is older; the other gets picked up later.
    - Clean up worktree, exit.
 3. Read PR (code + test files + description), spot-check Tester's evidence (one screenshot at least), read CLAUDE.md / AGENTS.md.
-4. Review the code (logic, conventions). Review the tests (right thing tested? testable assertions? meaningful coverage?).
+4. Review the code — **external engine when configured:**
+   - If `config.reviewer_command` is set, run that command from the review
+     worktree (it reviews the branch diff against `base_branch`) and capture
+     its output. Engine contract: it prints findings and an explicit final
+     verdict — `VERDICT: CLEAN` or `VERDICT: CHANGES NEEDED` with a numbered
+     fix list — and it NEVER edits code. Treat its numbered findings as this
+     step's review findings and route each via step 7 (`[builder]` vs `[QA]`
+     threads). A `CLEAN` verdict also satisfies the truth gate — skip step 6;
+     the engine IS the adversarial reviewer.
+   - If the command fails to run or emits no verdict line (crash, usage-limit
+     exhaustion), do NOT fall back to your own judgment — the board owner
+     chose the engine as the merge gate. Write the Block template and move
+     the card Review → Blocked with reason tag `🔐 reviewer engine
+     unavailable (retry when quota resets)`.
+   - When `reviewer_command` is unset, review the code yourself (logic,
+     conventions).
+   Review the tests in both modes (right thing tested? testable assertions? meaningful coverage?).
 5. **Reviewer-side test rerun** (always — closes the Tester self-verification gap):
    - Pull `issue-<N>-<slug>` into the review worktree.
    - Re-run the test command Tester used (recorded in Tester's PR handoff comment as `Local tests:` line).

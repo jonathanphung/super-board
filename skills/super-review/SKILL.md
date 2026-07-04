@@ -149,6 +149,20 @@ When invoked by super-board (env `SUPER_BOARD_RUN=1` or invocation contains "sup
 - Read from issue + PR comments + PR review threads.
 - Respect handed-down worktree at `.worktrees/issue-<N>-review/` and branch `issue-<N>-<slug>`.
 
+### External review engine (`config.reviewer_command`)
+When the board config sets `reviewer_command`, the merge-readiness verdict is
+DELEGATED to that command (e.g. OpenAI Codex) — you orchestrate, it judges:
+- Run the command from the review worktree; it reviews the branch diff against
+  `base_branch` and ends with `VERDICT: CLEAN` or `VERDICT: CHANGES NEEDED`
+  plus a numbered fix list.
+- Translate each numbered finding into a `[builder]`- or `[QA]`-prefixed PR
+  thread and bounce the card per the standard routing. Neither you nor the
+  engine edits code in this lane.
+- `CLEAN` → proceed with the standard exit (mark PR ready under
+  `human_approves_merge`, or squash-merge otherwise).
+- Command fails / no verdict line → move the card to Blocked with reason tag
+  `🔐 reviewer engine unavailable` — never substitute your own approval.
+
 ### Two variant modes
 - **Full variant:** review the diff (code + tests).
 - **QA-only variant:** review the QA report quality, not the code diff. (No diff exists in QA-only-URL.)

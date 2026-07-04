@@ -75,6 +75,19 @@
   // `base_branch` is `main` AND the repo has a deploy workflow detected.
   "human_approves_merge": false,
 
+  // External review engine for the Reviewer lane. When set, the Reviewer
+  // runs this command from the review worktree instead of judging the code
+  // itself. Engine contract: prints findings and ends with `VERDICT: CLEAN`
+  // or `VERDICT: CHANGES NEEDED` + a numbered fix list; it never edits code.
+  // CLEAN also satisfies the truth gate (sub-agent adversarial mode is
+  // skipped — the engine is the adversarial reviewer). If the command fails
+  // or emits no verdict, the card moves to Blocked (🔐 reviewer engine
+  // unavailable) — the lane must NOT approve on its own judgment as a
+  // fallback. Example (OpenAI Codex via the Claude Code openai-codex
+  // plugin's companion script):
+  //   "node ~/.claude/plugins/cache/openai-codex/codex/<version>/scripts/codex-companion.mjs review --wait --base origin/main --scope branch"
+  "reviewer_command": null,
+
   // Fail-closed acknowledgment for the legacy claude-p dispatcher's
   // production-merge guard. Deploy detection can't see dashboard-configured
   // pipelines (Cloudflare Pages, Render, Railway, Amplify, ...), so when
