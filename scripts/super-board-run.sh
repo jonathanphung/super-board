@@ -258,7 +258,15 @@ check_lane_zombie() {
 
 sweep_lane_zombies() {
   check_lane_zombie build  "Ready Building"
-  check_lane_zombie qa     "QA"
+  # qa-only dispatches the QA lane directly from Ready, and the cached
+  # project state can lag a full tick behind the dispatch — sweeping with
+  # only "QA" expected would kill a just-started worker whose card still
+  # reads Ready in the cache.
+  if [ "$VARIANT" = "qa-only" ]; then
+    check_lane_zombie qa   "Ready QA"
+  else
+    check_lane_zombie qa   "QA"
+  fi
   check_lane_zombie review "Review"
 }
 

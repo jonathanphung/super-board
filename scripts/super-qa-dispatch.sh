@@ -104,24 +104,30 @@ if grep -q "HUMAN GATE TRIPPED" "$LOG"; then
   exit 4
 fi
 
-# What did the worker commit since dispatch?
+# What did the worker commit since dispatch? Commit evidence outranks the
+# worker's exit code: a close-out commit means the iteration finished even if
+# the claude process then died at teardown, and a wip checkpoint is the
+# documented recoverable state — failing either as exit 2 would halt the
+# orchestrator on work the next iteration can pick up.
 CLOSEOUT=$(git log --format='%s' "${BASE_SHA}..HEAD" 2>/dev/null | grep -c "^super-qa: iter ${ITER} " || true)
 WIP=$(git log --format='%s' "${BASE_SHA}..HEAD" 2>/dev/null | grep -c "^wip: super-qa iter ${ITER}" || true)
 
-if [ "$WORKER_EXIT" -ne 0 ]; then
-  echo "[super-qa-dispatch] worker exited ${WORKER_EXIT} — see $LOG" >&2
-  exit 2
-fi
-
 if [ "$CLOSEOUT" -ge 1 ]; then
   SUBJECT=$(git log --format='%s' "${BASE_SHA}..HEAD" | grep "^super-qa: iter ${ITER} " | head -1)
+  [ "$WORKER_EXIT" -ne 0 ] && echo "[super-qa-dispatch] note: worker exited ${WORKER_EXIT} after committing its close-out — treating as complete (see $LOG)" >&2
   echo "[super-qa-dispatch] iter ${ITER} complete — ${SUBJECT}"
   exit 0
 fi
 
 if [ "$WIP" -ge 1 ]; then
+  [ "$WORKER_EXIT" -ne 0 ] && echo "[super-qa-dispatch] note: worker exited ${WORKER_EXIT} after its wip checkpoint (see $LOG)" >&2
   echo "[super-qa-dispatch] iter ${ITER} clipped mid-fix (wip commit, no close-out) — exit 5 (WIP-CHECKPOINT)" >&2
   exit 5
+fi
+
+if [ "$WORKER_EXIT" -ne 0 ]; then
+  echo "[super-qa-dispatch] worker exited ${WORKER_EXIT} with no commit evidence — see $LOG" >&2
+  exit 2
 fi
 
 echo "[super-qa-dispatch] worker exited 0 but produced no 'super-qa: iter ${ITER}' commit — see $LOG" >&2

@@ -20,8 +20,15 @@ The interactive session that runs this backend is the orchestrator. It:
 
 Run the same preconditions as `run.md` §Preconditions, minus PID checks:
 1. Config exists and validates against `config-schema.json`.
-2. Production-merge guard: refuse `base_branch: main` + `human_approves_merge:
-   false` when deploy markers exist (same rule as super-board-run.sh).
+2. Production-merge guard (fail closed — same rule as super-board-run.sh):
+   with `base_branch: main` + `human_approves_merge: false`, REFUSE to run
+   unless the config sets `"i_confirm_main_does_not_autodeploy": true`.
+   Deploy-marker detection alone is NOT sufficient to allow the run — deploys
+   can be wired entirely in a provider dashboard (Cloudflare Pages, Render,
+   Railway, ...) with zero repo-visible config. Even with the acknowledgment
+   set, a positively detected deploy marker (GitHub workflow pushing to main,
+   `vercel.json`, `netlify.toml`, `wrangler.toml`/`wrangler.jsonc`) still
+   refuses — the acknowledgment cannot override positive evidence.
 3. Stale-worktree scan: remove `.worktrees/*` whose branch is gone.
 4. `node --check` passes on a wrapped copy of
    `.claude/workflows/super-board-wave.js` (catches a broken script before
