@@ -223,7 +223,11 @@ dispatch_lane() {
     review) prompt="Run super-review on issue #${issue} for super-board run. Read .claude/skills/super-board/references/run.md → Reviewer lifecycle. Config: ${CONFIG_PATH}." ;;
     *) log "unknown lane: $lane"; return 1 ;;
   esac
-  nohup claude -p "$prompt" >/dev/null 2>&1 &
+  # Headless workers can't answer permission prompts — without the skip flag
+  # a lane worker stalls on its first gated tool call. Same invocation shape
+  # as super-build-dispatch.sh and super-qa-dispatch.sh (the documented
+  # worker contract), including the runaway-turn cap.
+  nohup claude -p "$prompt" --dangerously-skip-permissions --max-turns 250 >/dev/null 2>&1 &
   pid=$!
   # v1.3.0+ lock format: bash-assignment style so `super-board stop` can source it
   # to recover lane + dispatch time. issue_locked()/reap_finished_locks() still work
