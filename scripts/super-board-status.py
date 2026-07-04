@@ -449,8 +449,19 @@ def main() -> int:
     project_owner: str = cfg["project"]["owner"]
     project_number: int = int(cfg["project"]["number"])
     runs_dir = cfg.get("paths", {}).get("runs_dir", "docs/super-board/runs")
+    # An unattended run that crosses midnight keeps logging to the manifest
+    # named with its START date — reading only today's file would report
+    # "no active run" from 00:00 onward while the runner is still alive.
+    # Use today's manifest when it exists, else the newest one for this slug;
+    # run_date must follow the chosen file so its HH:MM:SS timestamps convert
+    # to epochs on the right day.
     run_date = datetime.date.today().isoformat()
     manifest_path = Path(runs_dir) / f"{run_date}-{config_slug}.md"
+    if not manifest_path.is_file():
+        candidates = sorted(Path(runs_dir).glob(f"????-??-??-{config_slug}.md"))
+        if candidates:
+            manifest_path = candidates[-1]
+            run_date = manifest_path.name[:10]
 
     # ── fetch project items (paginated) ──
     def fetch_page(after: str | None) -> dict[str, Any]:

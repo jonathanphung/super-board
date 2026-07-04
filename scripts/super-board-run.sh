@@ -490,7 +490,21 @@ while true; do
       ACTIVE_WORKERS=$((ACTIVE_WORKERS + 1))
     fi
   fi
-  if can_dispatch && [ "$VARIANT" = "full" ] && [ "$READY" -gt 0 ] && [ "$BUILD_IDLE" -eq 1 ]; then
+  # Reclaim orphaned Building cards BEFORE pulling new Ready work: a Builder
+  # that crashed or was stopped after moving its card to Building leaves work
+  # a Ready-only dispatch would never re-claim — the loop counts Building as
+  # active and eventually halts for no progress. top_card_in_column already
+  # skips cards with a live lock or assignee, so an actively-worked Building
+  # card is never double-dispatched.
+  if can_dispatch && [ "$VARIANT" = "full" ] && [ "$BUILDING" -gt 0 ] && [ "$BUILD_IDLE" -eq 1 ]; then
+    card=$(top_card_in_column "Building")
+    if [ -n "${card:-}" ]; then
+      dispatch_lane build "$card"
+      PROGRESS=1
+      ACTIVE_WORKERS=$((ACTIVE_WORKERS + 1))
+    fi
+  fi
+  if can_dispatch && [ "$VARIANT" = "full" ] && [ "$READY" -gt 0 ] && [ "$BUILD_IDLE" -eq 1 ] && lane_idle "$BUILD_PID"; then
     card=$(top_card_in_column "Ready")
     if [ -n "${card:-}" ]; then
       dispatch_lane build "$card"

@@ -173,8 +173,28 @@ if [ -d "$INFLIGHT_DIR" ]; then
   done
 fi
 
-DISPATCHER_PIDS=$(pgrep -f 'super-board-run\.sh' 2>/dev/null || true)
-ORPHAN_WORKERS=$(pgrep -f 'claude -p .*super-board' 2>/dev/null || true)
+# Scope process matches to THIS repo: a shared machine can host super-board
+# runs for other repos/configs, and stopping this board must not kill theirs.
+# A worker's cwd is the repo root or a .worktrees/ dir under it. PIDs whose
+# cwd can't be read are SKIPPED (fail-safe — better to leave a process than
+# kill an unrelated run) and surfaced for manual handling.
+REPO_ROOT=$(pwd -P)
+pids_in_this_repo() {
+  local pid cwd
+  for pid in $1; do
+    cwd=$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)
+    if [ -z "$cwd" ]; then
+      echo "  ⚠ pid ${pid}: cannot determine cwd — skipping (kill manually if it belongs to this repo)" >&2
+      continue
+    fi
+    case "$cwd" in
+      "$REPO_ROOT"|"$REPO_ROOT"/*) echo "$pid" ;;
+    esac
+  done
+}
+
+DISPATCHER_PIDS=$(pids_in_this_repo "$(pgrep -f 'super-board-run\.sh' 2>/dev/null || true)")
+ORPHAN_WORKERS=$(pids_in_this_repo "$(pgrep -f 'claude -p .*super-board' 2>/dev/null || true)")
 
 if [ "${#WORKERS[@]}" -eq 0 ] && [ -z "$DISPATCHER_PIDS" ] && [ -z "$ORPHAN_WORKERS" ]; then
   echo "  ✓ nothing to stop — no dispatcher, no in-flight workers, no orphans"
