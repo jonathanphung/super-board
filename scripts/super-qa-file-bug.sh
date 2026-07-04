@@ -206,7 +206,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
 fi
 
 for label in "${LABELS[@]}"; do
-  gh label create "$label" --color "ededed" 2>/dev/null || true
+  gh label create "$label" --color "ededed" >/dev/null 2>&1 || true
 done
 
 LABEL_FLAGS=()

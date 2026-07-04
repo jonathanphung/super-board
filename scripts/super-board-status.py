@@ -665,7 +665,19 @@ def main() -> int:
     active = len(inflight)
     run_active = bool(last_tick) and not exited
 
-    if not run_active and active == 0:
+    # The default workflow backend tracks an active wave via a lock file, not
+    # via the legacy dispatcher's manifest tick/dispatch lines — without this
+    # check an in-flight wave renders as "no active run".
+    wave_lock = Path(".claude/super-board/inflight/workflow-wave.lock")
+    if wave_lock.exists():
+        print(f"▎Workers  (workflow backend)")
+        try:
+            detail = wave_lock.read_text().strip().splitlines()[0]
+        except (OSError, IndexError):
+            detail = ""
+        suffix = f" ({detail})" if detail else ""
+        print(f"   workflow wave in flight{suffix} — columns above are its live state")
+    elif not run_active and active == 0:
         print(f"▎Workers  (claim: {bot_login})")
         print("   (no active run — `super-board run` to start)")
     else:

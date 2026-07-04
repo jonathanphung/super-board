@@ -62,9 +62,15 @@ if ! git rev-parse --git-dir >/dev/null 2>&1; then
   exit 64
 fi
 
-# Verify base branch exists locally or on origin
+# Verify base branch exists locally or on origin, and resolve the ref we
+# actually hand to `git worktree add` — in fresh clones and worktrees the
+# base often exists only as origin/<name>, and the bare local name would
+# fail there with an invalid reference even though validation passed.
+BASE_REF="$BASE_BRANCH"
 if ! git rev-parse --verify "$BASE_BRANCH" >/dev/null 2>&1; then
-  if ! git rev-parse --verify "origin/$BASE_BRANCH" >/dev/null 2>&1; then
+  if git rev-parse --verify "origin/$BASE_BRANCH" >/dev/null 2>&1; then
+    BASE_REF="origin/$BASE_BRANCH"
+  else
     echo "error: base branch '$BASE_BRANCH' not found locally or on origin" >&2
     exit 64
   fi
@@ -109,7 +115,7 @@ ISSUE_BODY=$(printf '%s' "$ISSUE_JSON" | jq -r '.body')
 } > "$PROMPT_FILE"
 
 # Create the worktree on a fresh branch off BASE_BRANCH
-if ! git worktree add -b "$WORKER_BRANCH" "$WORKTREE_DIR" "$BASE_BRANCH" >>"$LOG_FILE" 2>&1; then
+if ! git worktree add -b "$WORKER_BRANCH" "$WORKTREE_DIR" "$BASE_REF" >>"$LOG_FILE" 2>&1; then
   echo "error: git worktree add failed — see $LOG_FILE" >&2
   exit 64
 fi
