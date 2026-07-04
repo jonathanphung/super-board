@@ -673,8 +673,12 @@ npm run qa:report:render
 ```
 
 **Quality bar (must stay green before commit):**
-- `npm run lint`
-- `npm run check`
+- `npm run lint` and `npm run check` — **only if the repo defines them**
+  (verify with `npm run` first; not every project has lint/typecheck
+  scripts). If a script exists and is red, fix before committing. If a
+  script doesn't exist, note `quality bar: <script> not defined` once in
+  `iteration-N.md` Section 8 and continue — do NOT fail the close-out over
+  a missing script.
 
 **Stage explicitly (NEVER `git add .`):**
 ```bash
@@ -682,8 +686,11 @@ git add e2e/paths/<new-or-modified specs> \
         docs/super-qa/iter/iteration-N.md \
         docs/super-qa/queue.md \
         docs/super-qa/report/QA-REPORT.md \
-        docs/super-qa/report/_ledger.json \
-        docs/super-qa/report/<slug>/  # if new screenshots
+        docs/super-qa/report/<slug>/
+# Stage the machine-readable ledger only when the render step produced it —
+# unconditionally listing a nonexistent path makes git add fail and blocks
+# the mandatory close-out commit:
+[ -f docs/super-qa/report/_ledger.json ] && git add docs/super-qa/report/_ledger.json
 ```
 
 **Final commit (mandatory format — orchestrator parses):**
