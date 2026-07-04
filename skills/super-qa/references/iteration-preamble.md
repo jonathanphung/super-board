@@ -240,7 +240,7 @@ acceptable; a fix can silently disable a feature to make a wrong spec pass.
    red test. Make it green by changing the smallest amount of production
    code. Then re-run `npm run lint` + `npm run check` — must stay green.
 
-4. **Commit + push + open PR:**
+4. **Commit + push + open PR, then RETURN TO THE LOOP BRANCH:**
    ```bash
    git add -p   # stage only fix-relevant hunks
    git commit -m "fix(super-qa): <one-line bug summary> (refs #${ISSUE_N})"
@@ -250,7 +250,12 @@ acceptable; a fix can silently disable a feature to make a wrong spec pass.
      --label super-qa \
      --label "$([[ "$SIGNAL" = "objective" ]] && echo auto-merge-candidate || echo needs-human-review)" \
      --body-file /tmp/super-qa-pr-body-${N}-${slug}.md
+   git switch <active-branch>   # the branch from your iteration metadata — NON-OPTIONAL
    ```
+   Switching back is mandatory the moment the PR exists: the dispatcher only
+   inspects the active branch, so queue/report/spec updates committed while
+   still on `fix/...` would record a "complete" iteration whose required
+   close-out artifacts live on the wrong branch.
 
    PR body must include:
    - Link to the GH issue (`Fixes #${ISSUE_N}`)
@@ -571,6 +576,13 @@ detection (do NOT batch at end of iter):
    - Exit 71: issue created but project-board promote failed — capture the
      printed issue number anyway, log "issue #N filed but not in Ready —
      manual move required" in `iteration-N.md`, continue.
+   - **Exit 77: QA project or its Status option is missing — HARD HALT.**
+     This is broken setup, not a transient failure: every subsequent bug
+     would silently miss the board and `/super-build` would never see it.
+     Print `HUMAN GATE TRIPPED: qa-board-missing — create the project
+     (gh project create --owner "@me" --title "Super Ultimate QA") with
+     Status options Queue/Testing/Done/Bug/Flaky/Skip`, document it in
+     `iteration-N.md` Section 1, and exit non-zero. Do NOT continue.
    - Other non-zero: GH API failure. Log the bug to `iteration-N.md` Section
      3 with `gh_issue: PENDING` and continue. The orchestrator's next iter
      will not retry — this is a one-shot best-effort and the `iteration-N.md`
@@ -585,6 +597,12 @@ If unsure between two tiers, pick the **higher** priority. The human can
 re-label later via `gh issue edit`.
 
 ### Phase 3 — Report
+
+**First: verify you are on the active branch** (`git branch --show-current`
+must equal the branch from your iteration metadata). If a fix flow left you
+on a `fix/...` branch, switch back NOW — close-out commits on the wrong
+branch make the dispatcher record a completed iteration whose artifacts the
+loop can't see.
 
 **Write `docs/super-qa/iter/iteration-N.md` with these sections:**
 

@@ -62,6 +62,10 @@ RUN_MANIFEST="docs/super-board/runs/${RUN_DATE}-${CONFIG_SLUG}.md"
 INFLIGHT_DIR=".claude/super-board/inflight"
 mkdir -p "docs/super-board/runs" .worktrees "$INFLIGHT_DIR"
 
+# Unique identity for THIS runner process — the assignee mutex alone can't
+# distinguish two runners sharing one BOT_LOGIN (see try_claim_assignee).
+RUN_TOKEN="$(hostname 2>/dev/null || echo host)-$$-$(date +%s)"
+
 # ───────────────────────────── helpers ─────────────────────────────
 log() { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$RUN_MANIFEST"; }
 
@@ -179,6 +183,25 @@ try_claim_assignee() {
   if [ "$assignees" != "$BOT_LOGIN" ]; then
     log "claim lost on #${issue} (assignees now: ${assignees:-none}) — releasing our claim"
     gh issue edit "$issue" --remove-assignee "$BOT_LOGIN" >/dev/null 2>&1 || true
+    return 1
+  fi
+  # Same-login tiebreak: two runners sharing one BOT_LOGIN both pass the
+  # sole-assignee check above (both edits self-assign the same account).
+  # Post a claim comment carrying this runner's unique token; GitHub orders
+  # comments server-side, so the earliest recent claim deterministically
+  # wins. Losers skip WITHOUT releasing the assignee — the winner shares it.
+  # Claims older than 15 minutes are ignored as leftovers from crashed runs.
+  local cutoff winner
+  gh issue comment "$issue" --body "🔒 super-board-claim ${RUN_TOKEN}" >/dev/null 2>&1 || {
+    log "claim-token comment failed on #${issue} — releasing claim, skipping this tick"
+    gh issue edit "$issue" --remove-assignee "$BOT_LOGIN" >/dev/null 2>&1 || true
+    return 1
+  }
+  cutoff=$(date -u -v-15M +%FT%TZ 2>/dev/null || date -u -d '15 minutes ago' +%FT%TZ)
+  winner=$(gh issue view "$issue" --json comments -q \
+    "[.comments[] | select(.body | startswith(\"🔒 super-board-claim \")) | select(.createdAt >= \"$cutoff\")] | sort_by(.createdAt, .id) | first | .body" 2>/dev/null)
+  if [ "$winner" != "🔒 super-board-claim ${RUN_TOKEN}" ]; then
+    log "claim tiebreak lost on #${issue} (winner: ${winner:-unknown}) — skipping; the winning runner proceeds"
     return 1
   fi
   return 0
